@@ -64,7 +64,22 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
     # TODO: Implement function
-    return None
+
+    # Implement 1x1 convolution from layer 7 from VGG
+    num_classes = 2
+    kernel_size = 1
+    stride = 1
+    layer = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, stride)
+
+    # Upsample the layer
+    kernel = (2,2)
+    stride = (2,2)
+    layer = tf.layers.conv2d_transpose(layer, num_classes, kernel, stride)
+
+    print(tf.size(layer))
+    # Implement 
+
+    return layer
 tests.test_layers(layers)
 
 
