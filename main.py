@@ -42,13 +42,13 @@ def load_vgg(sess, vgg_path):
     print('Loaded VGG!')
 
     # Get VGG graph.
-    vgg = tf.get_default_graph()
+    graph = tf.get_default_graph()
 
-    image_input = vgg.get_tensor_by_name(vgg_input_tensor_name) 
-    keep_prob = vgg.get_tensor_by_name(vgg_keep_prob_tensor_name)
-    layer3_out = vgg.get_tensor_by_name(vgg_layer3_out_tensor_name)
-    layer4_out = vgg.get_tensor_by_name(vgg_layer4_out_tensor_name)
-    layer7_out = vgg.get_tensor_by_name(vgg_layer7_out_tensor_name)
+    image_input = graph.get_tensor_by_name(vgg_input_tensor_name) 
+    keep_prob = graph.get_tensor_by_name(vgg_keep_prob_tensor_name)
+    layer3_out = graph.get_tensor_by_name(vgg_layer3_out_tensor_name)
+    layer4_out = graph.get_tensor_by_name(vgg_layer4_out_tensor_name)
+    layer7_out = graph.get_tensor_by_name(vgg_layer7_out_tensor_name)
 
     return image_input, keep_prob, layer3_out, layer4_out, layer7_out
 tests.test_load_vgg(load_vgg, tf)
@@ -66,18 +66,29 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     # TODO: Implement function
 
     # Implement 1x1 convolution from layer 7 from VGG
-    num_classes = 2
     kernel_size = 1
     stride = 1
-    layer = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, stride)
+    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, padding='same', \
+                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     # Upsample the layer
-    kernel = (2,2)
-    stride = (2,2)
-    layer = tf.layers.conv2d_transpose(layer, num_classes, kernel, stride)
+    kernel = 4
+    stride = 2
+    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, kernel, stride, padding='same' \
+                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
-    print(tf.size(layer))
-    # Implement 
+    # Add skip connection
+    output = tf.add(output, vgg_layer4_out)
+
+
+    # Upsample again by 2
+    output = tf.layers.conv2d_transpose(output, num_classes, kernel, stride, padding='same' \
+                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+    output = tf.add(output, vgg_layer3_out)
+
+    output = tf.layers.conv2d_transpose(output, num_classes, 16, strides=(8,8), padding='same' \
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     return layer
 tests.test_layers(layers)
@@ -113,6 +124,10 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
+    logits = tf.reshape(input, (-1, num_classes))
+
+    cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits)
+
     pass
 tests.test_train_nn(train_nn)
 
