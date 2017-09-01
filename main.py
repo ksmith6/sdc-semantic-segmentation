@@ -68,26 +68,37 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     # Implement 1x1 convolution from layer 7 from VGG
     kernel_size = 1
     stride = 1
-    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, padding='same', \
+    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, padding='same', strides=(1,1), \
                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     # Upsample the layer
     kernel = 4
     stride = 2
-    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, kernel, stride, padding='same' \
+    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, kernel, padding='same', strides=(2,2), \
                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     # Add skip connection
-    output = tf.add(output, vgg_layer4_out)
+    kernel = 1
+    pool_4 = tf.layers.conv2d(vgg_layer4_out, num_classes, kernel, padding='same', strides=(1,1), \
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.add(output, pool4)
 
 
     # Upsample again by 2
-    output = tf.layers.conv2d_transpose(output, num_classes, kernel, stride, padding='same' \
+    kernel = 4
+    output = tf.layers.conv2d_transpose(output, num_classes, kernel, padding='same', strides=(2,2) \
                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
-    output = tf.add(output, vgg_layer3_out)
+    # Make pooling layer
+    kernel = 1
+    pool_3 = tf.layers.conv2d(vgg_layer3_out, num_classes, kernel, padding='same',strides=(1,1)
+    
+    # Skip connection
+    output = tf.add(output, pool_3)
 
-    output = tf.layers.conv2d_transpose(output, num_classes, 16, strides=(8,8), padding='same' \
+    # Upsample by 8
+    kernel = 16
+    output = tf.layers.conv2d_transpose(output, num_classes, kernel, padding='same', strides=(8,8),  \
         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     return layer
@@ -104,7 +115,18 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
     # TODO: Implement function
-    return None, None, None
+    logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    truth = tf.reshape(correct_label, (-1, num_classes))
+
+    cross_entropy_loss = tf.nn.softmax_cross_entry_with_logits(truth, logits)
+    loss_op = tf.reduce_mean(cross_entropy_loss)
+
+    # Create an ADAM Optimizer for training
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    train_op = optimizer.minimize(loss_op)
+
+
+    return logits, train_op, loss_op
 tests.test_optimize(optimize)
 
 
@@ -124,11 +146,14 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-    logits = tf.reshape(input, (-1, num_classes))
+    for epoch in epochs:
+        for image, label in get_batches_fn(batch_size):
+             # Training
+             pass
 
-    cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits)
 
-    pass
+    
+    
 tests.test_train_nn(train_nn)
 
 
@@ -156,8 +181,13 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # TODO: Build NN using load_vgg, layers, and optimize function
+        input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
+        layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
+
 
         # TODO: Train NN using the train_nn function
+
+
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
