@@ -126,7 +126,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     train_op = optimizer.minimize(loss_op)
 
 
-    return logits, train_op, loss_op
+    return logits, train_op, 
 tests.test_optimize(optimize)
 
 
@@ -146,12 +146,16 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
+    # Initialize list to store history of loss from training steps
+    loss_history = []
     for epoch in epochs:
         for image, label in get_batches_fn(batch_size):
-             # Training
-             pass
+             x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:learning_rate, keep_prob:keep_prob, input_image:images, correct_label:correct_label})
+             loss_history.append(loss)
 
 
+
+    return loss_history
     
     
 tests.test_train_nn(train_nn)
@@ -186,8 +190,11 @@ def run():
 
 
         # TODO: Train NN using the train_nn function
+        # logits, train_op, loss_op = optimize(layer_output, labels, learning_rate, num_classes)
 
+        loss_history = train_nn(sess, nEpochs, batch_size, get_batches_fn, train_op, loss_op, input_image, labels, keep_prob, learning_rate)
 
+        # TODO - Plot loss in Matplotlib
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
