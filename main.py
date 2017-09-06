@@ -67,13 +67,11 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
 
     # Implement 1x1 convolution from layer 7 from VGG
     kernel_size = 1
-    stride = 1
     conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, padding='same', strides=(1,1), \
                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     # Upsample the layer
     kernel = 4
-    stride = 2
     output = tf.layers.conv2d_transpose(conv_1x1, num_classes, kernel, padding='same', strides=(2,2), \
                                         kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
@@ -126,7 +124,7 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     train_op = optimizer.minimize(loss_op)
 
 
-    return logits, train_op, 
+    return logits, train_op, loss_op
 tests.test_optimize(optimize)
 
 
@@ -146,13 +144,24 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
+
+    sess.run(tf.global_variables_initializer())
+
     # Initialize list to store history of loss from training steps
     loss_history = []
-    for epoch in epochs:
-        for image, label in get_batches_fn(batch_size):
-             x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:learning_rate, keep_prob:keep_prob, input_image:images, correct_label:correct_label})
-             loss_history.append(loss)
 
+    
+
+    for epoch in epochs:
+
+        batch_ctr = 0
+
+        print("Starting Epoch {}".format(epoch)
+        for image, label in get_batches_fn(batch_size):
+            batch_ctr += 1
+            x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:learning_rate, keep_prob:keep_prob, input_image:images, correct_label:correct_label})
+                            loss_history.append(loss)
+            print("Epoch #{}, Batch #{}, Loss = {}".format(epoch, batch_ctr, loss))
 
 
     return loss_history
