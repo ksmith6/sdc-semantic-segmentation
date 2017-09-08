@@ -6,16 +6,10 @@ from distutils.version import LooseVersion
 import project_tests as tests
 
 
-
-
-
-# DEFINE GLOBAL VARIABLES
-NUM_EPOCHS = 300
-LEARNING_RATE = 1e-4
-BATCH_SIZE = 16
-
-
-
+# Define global variables for hyperparameters
+NUM_EPOCHS = 300        # Number of training epochs
+LEARNING_RATE = 1e-4    # Learning rate for ADAM optimizer
+BATCH_SIZE = 12         # Batch size
 
 
 # Check TensorFlow Version
@@ -36,11 +30,8 @@ def load_vgg(sess, vgg_path):
     :param vgg_path: Path to vgg folder, containing "variables/" and "saved_model.pb"
     :return: Tuple of Tensors from VGG model (image_input, keep_prob, layer3_out, layer4_out, layer7_out)
     """
-    # TODO: Implement function
-    #   Use tf.saved_model.loader.load to load the model and weights
-
     
-
+    # Specify the layers to fetch from the VGG16 network.
     vgg_tag = 'vgg16'
     vgg_input_tensor_name = 'image_input:0'
     vgg_keep_prob_tensor_name = 'keep_prob:0'
@@ -51,11 +42,13 @@ def load_vgg(sess, vgg_path):
     # Load the serialized model and weights.
     tf.saved_model.loader.load(sess, [vgg_tag], vgg_path);
 
+    # Print a helper message to indicate that the model was loaded.
     print('Loaded VGG!')
 
     # Get VGG graph.
     graph = tf.get_default_graph()
 
+    # Fetch the layers from the VGG16 graph.
     image_input = graph.get_tensor_by_name(vgg_input_tensor_name) 
     keep_prob = graph.get_tensor_by_name(vgg_keep_prob_tensor_name)
     layer3_out = graph.get_tensor_by_name(vgg_layer3_out_tensor_name)
@@ -121,9 +114,11 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
 
+    # Reshape logits and labels
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
     truth = tf.reshape(correct_label, (-1, num_classes))
 
+    # Form the cross-entropy loss operation
     cross_entropy_loss = tf.nn.softmax_cross_entropy_with_logits(labels=truth, logits=logits)
     loss_op = tf.reduce_mean(cross_entropy_loss)
 
@@ -151,28 +146,42 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
     """
-    batches = 0
+
+    # Initialize tf variables
     sess.run(tf.global_variables_initializer())
 
-
-    # TODO: Implement function
     # Initialize list to store history of loss from training steps
     loss_history = []
+
+    # Train the network for NUM_EPOCHS epochs.
     for epoch in range(NUM_EPOCHS):
+
+        # Reset Batch Counter 
         batch_ctr = 0
+
+        # Generate batches of images and labels from the generator.
         for images, labels in get_batches_fn(batch_size):
-             #x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:1e-4, keep_prob:1.0, input_image:images, correct_label:correct_label})
-             batch_ctr += 1
-             if images.shape[0] != batch_size:
+            #x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:1e-4, keep_prob:1.0, input_image:images, correct_label:correct_label})
+            batch_ctr += 1
+            
+            # Handle irregularly shaped batches (not fully-sized)
+            if images.shape[0] != batch_size:
+                # Skip to next epoch
                 continue
-             _, loss = sess.run([train_op, cross_entropy_loss],
-                               feed_dict={learning_rate: LEARNING_RATE, correct_label: labels,
-                                          keep_prob: 1.0, input_image: images})
-             print("Epoch {}, Batch {}, Loss {:.5f}".format((epoch+1), batch_ctr, loss))
+             
+             # Train the network for a single batch.
+             x, loss = sess.run([train_op, cross_entropy_loss],
+                               feed_dict={learning_rate: LEARNING_RATE, keep_prob: 1.0, 
+                               input_image: images, correct_label: labels})
+             
+             # Print out the training progress and loss.
+             print("Epoch #{}, Batch #{}, Loss {:.8f}".format((epoch+1), batch_ctr, loss))
+             
+             # Append the loss to the list of losses for future plotting.
              loss_history.append(loss)
         
 
-
+    # Return the list of losses during training.
     return loss_history
     
     
@@ -186,12 +195,9 @@ def run():
     runs_dir = './runs'
     tests.test_for_kitti_dataset(data_dir)
 
-    nEpochs = 100
-
+    # Create placeholders for the labels and the learning rate
     label = tf.placeholder(tf.float32, shape=[BATCH_SIZE, image_shape[0], image_shape[1], num_classes])
     learning_rate = tf.placeholder(tf.float32, shape=[])
-
-    
 
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
@@ -201,30 +207,31 @@ def run():
     #  https://www.cityscapes-dataset.com/
 
     with tf.Session() as sess:
+        
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
+
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
 
-        # OPTIONAL: Augment Images for better results
+        # TODO: OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
-        # TODO: Build NN using load_vgg, layers, and optimize function
+        # Build NN using load_vgg and layers
         input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
 
-
-        # TODO: Train NN using the train_nn function
+        # Generate the training and loss operations.
         logits, train_op, loss_op = optimize(layer_output, label, learning_rate, num_classes)
 
-        loss_history = train_nn(sess, nEpochs, BATCH_SIZE, get_batches_fn, train_op, loss_op, input_image, label, keep_prob, learning_rate)
+        # Train the neural network using ADAM Optimizer
+        loss_history = train_nn(sess, NUM_EPOCHS, BATCH_SIZE, get_batches_fn, train_op, loss_op, input_image, label, keep_prob, learning_rate)
 
-        # TODO - Plot loss in Matplotlib
-
-        # TODO: Save inference data using helper.save_inference_samples
+        # Save inference data using helper.save_inference_samples
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
-        # OPTIONAL: Apply the trained model to a video
+        # TODO: Apply the trained model to a video
+        # TODO: Plot the loss_history variable.
 
 
 if __name__ == '__main__':
