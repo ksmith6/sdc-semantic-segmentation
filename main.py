@@ -9,7 +9,7 @@ import project_tests as tests
 # Define global variables for hyperparameters
 NUM_EPOCHS = 300        # Number of training epochs
 LEARNING_RATE = 1e-4    # Learning rate for ADAM optimizer
-BATCH_SIZE = 12         # Batch size
+BATCH_SIZE = 16         # Batch size
 
 
 # Check TensorFlow Version
