@@ -6,6 +6,18 @@ from distutils.version import LooseVersion
 import project_tests as tests
 
 
+
+
+
+# DEFINE GLOBAL VARIABLES
+NUM_EPOCHS = 300
+LEARNING_RATE = 1e-4
+BATCH_SIZE = 16
+
+
+
+
+
 # Check TensorFlow Version
 assert LooseVersion(tf.__version__) >= LooseVersion('1.0'), 'Please use TensorFlow version 1.0 or newer.  You are using {}'.format(tf.__version__)
 print('TensorFlow Version: {}'.format(tf.__version__))
@@ -63,43 +75,39 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    # TODO: Implement function
 
     # Implement 1x1 convolution from layer 7 from VGG
     kernel_size = 1
-    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, padding='same', strides=(1,1), \
-                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, kernel_size, padding='same', strides=1, kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    
 
     # Upsample the layer
     kernel = 4
-    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, kernel, padding='same', strides=(2,2), \
-                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.layers.conv2d_transpose(conv_1x1, num_classes, kernel, padding='same', strides=2, kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     # Add skip connection
     kernel = 1
-    pool_4 = tf.layers.conv2d(vgg_layer4_out, num_classes, kernel, padding='same', strides=(1,1), \
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    output = tf.add(output, pool4)
+    pool_4 = tf.layers.conv2d(vgg_layer4_out, num_classes, kernel, padding='same', strides=1, kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+
+    output = tf.add(output, pool_4)
 
 
     # Upsample again by 2
     kernel = 4
-    output = tf.layers.conv2d_transpose(output, num_classes, kernel, padding='same', strides=(2,2) \
-                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.layers.conv2d_transpose(output, num_classes, kernel, padding='same', strides=2, kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     # Make pooling layer
     kernel = 1
-    pool_3 = tf.layers.conv2d(vgg_layer3_out, num_classes, kernel, padding='same',strides=(1,1)
+    pool_3 = tf.layers.conv2d(vgg_layer3_out, num_classes, kernel, padding='same', strides=1, kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     
     # Skip connection
     output = tf.add(output, pool_3)
 
     # Upsample by 8
     kernel = 16
-    output = tf.layers.conv2d_transpose(output, num_classes, kernel, padding='same', strides=(8,8),  \
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    output = tf.layers.conv2d_transpose(output, num_classes, kernel, padding='same', strides=8, kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
-    return layer
+    return output
 tests.test_layers(layers)
 
 
@@ -112,19 +120,19 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :param num_classes: Number of classes to classify
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
-    # TODO: Implement function
+
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
     truth = tf.reshape(correct_label, (-1, num_classes))
 
-    cross_entropy_loss = tf.nn.softmax_cross_entry_with_logits(truth, logits)
+    cross_entropy_loss = tf.nn.softmax_cross_entropy_with_logits(labels=truth, logits=logits)
     loss_op = tf.reduce_mean(cross_entropy_loss)
 
     # Create an ADAM Optimizer for training
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(loss_op)
 
-
     return logits, train_op, loss_op
+
 tests.test_optimize(optimize)
 
 
@@ -143,25 +151,26 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
     """
-    # TODO: Implement function
-
+    batches = 0
     sess.run(tf.global_variables_initializer())
 
+
+    # TODO: Implement function
     # Initialize list to store history of loss from training steps
     loss_history = []
-
-    
-
-    for epoch in epochs:
-
+    for epoch in range(NUM_EPOCHS):
         batch_ctr = 0
-
-        print("Starting Epoch {}".format(epoch)
-        for image, label in get_batches_fn(batch_size):
-            batch_ctr += 1
-            x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:learning_rate, keep_prob:keep_prob, input_image:images, correct_label:correct_label})
-                            loss_history.append(loss)
-            print("Epoch #{}, Batch #{}, Loss = {}".format(epoch, batch_ctr, loss))
+        for images, labels in get_batches_fn(batch_size):
+             #x, loss = sess.run([train_op, cross_entropy_loss], feed_dict={learning_rate:1e-4, keep_prob:1.0, input_image:images, correct_label:correct_label})
+             batch_ctr += 1
+             if images.shape[0] != batch_size:
+                continue
+             _, loss = sess.run([train_op, cross_entropy_loss],
+                               feed_dict={learning_rate: LEARNING_RATE, correct_label: labels,
+                                          keep_prob: 1.0, input_image: images})
+             print("Epoch {}, Batch {}, Loss {:.5f}".format((epoch+1), batch_ctr, loss))
+             loss_history.append(loss)
+        
 
 
     return loss_history
@@ -176,6 +185,13 @@ def run():
     data_dir = './data'
     runs_dir = './runs'
     tests.test_for_kitti_dataset(data_dir)
+
+    nEpochs = 100
+
+    label = tf.placeholder(tf.float32, shape=[BATCH_SIZE, image_shape[0], image_shape[1], num_classes])
+    learning_rate = tf.placeholder(tf.float32, shape=[])
+
+    
 
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
@@ -199,14 +215,14 @@ def run():
 
 
         # TODO: Train NN using the train_nn function
-        # logits, train_op, loss_op = optimize(layer_output, labels, learning_rate, num_classes)
+        logits, train_op, loss_op = optimize(layer_output, label, learning_rate, num_classes)
 
-        loss_history = train_nn(sess, nEpochs, batch_size, get_batches_fn, train_op, loss_op, input_image, labels, keep_prob, learning_rate)
+        loss_history = train_nn(sess, nEpochs, BATCH_SIZE, get_batches_fn, train_op, loss_op, input_image, label, keep_prob, learning_rate)
 
         # TODO - Plot loss in Matplotlib
 
         # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
         # OPTIONAL: Apply the trained model to a video
 
